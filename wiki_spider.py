@@ -3,37 +3,38 @@ from scrapy.crawler import CrawlerProcess
 import re
 import clean
 
-pattern = re.compile("\/wiki\/(\w|\(|\)|-)*")
+pattern = re.compile('\/wiki\/(\w|\(|\)|-|%|#)*"')
 
 class WikiSpider(scrapy.Spider):
     name = "wiki"
-    start_urls = ['https://en.wikipedia.org/wiki/Bielefeld']
+    start_urls = ['https://en.wikipedia.org/wiki/Urban_M%C4%81ori']
 
     def parse(self, response):
         title = ""
-        with open('list_of_pages.txt', 'a') as f:
+        with open('list_of_pages.txt', 'ab') as f:
             title = (response.css('title::text').get())[:-12]+"\n"
-            f.write(title)
+            f.write(title.encode('utf8'))
             f.close()
 
         potential_match = ""
         next_page = ""
         para_arr = response.css('#mw-content-text > div > p').getall() #array of strings of paragraphs
         for para in para_arr:
-            while (pattern.search(para)):
-                potential_match = pattern.search(para)  # get first prospective url
-                my_index = potential_match.span()[0]
-                came_before = para[:my_index]
-                if clean.balanced_parens(came_before):
-                    next_page = potential_match.group(0)
-                    break
-                else:
-                    #removing first slash of the link so that it no longer matches,
-                    # and continue searching for hyperlinked articles in the current paragraph
-                    para = para[:my_index]+"CHECKED"+para[my_index+1:]
+            if not('<span id="coordinates">' in para):
+                while (pattern.search(para)):
+                    potential_match = pattern.search(para)  # get first prospective url
+                    my_index = potential_match.span()[0]
+                    came_before = para[:my_index]
+                    if clean.balanced_parens(came_before):
+                        next_page = potential_match.group(0)[:-1]
+                        break
+                    else:
+                        #removing first slash of the link so that it no longer matches,
+                        # and continue searching for hyperlinked articles in the current paragraph
+                        para = para[:my_index]+"CHECKED"+para[my_index+1:]
 
-            if next_page != "":
-                break
+                if next_page != "":
+                    break
 
 
         if ((next_page != "") and (title != "Philosophy\n")):
